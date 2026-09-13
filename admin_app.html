@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Chalk & Score — Admin</title>
+
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+
+<style>
+  :root{
+    --board:#22303F; --chalk:#F1EFE6; --chalk-dim:#AFC0CC;
+    --accent:#E8A33D; --accent-dark:#C9862C; --good:#7FB88A; --bad:#D07A6E;
+    --card:#2E3F52; --card-line:rgba(241,239,230,0.14); --radius:10px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--board); color:var(--chalk);
+    font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+    min-height:100vh; display:flex; justify-content:center; -webkit-tap-highlight-color:transparent;
+  }
+  .app{width:100%;max-width:480px;min-height:100vh;padding:24px 20px 40px;display:flex;flex-direction:column;}
+  h1,h2{font-family:Georgia,'Times New Roman',serif;font-weight:700;margin:0;}
+  .brand{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:6px;}
+  .brand h1{font-size:24px;}
+  .brand span{font-size:11px;color:var(--accent);font-weight:700;letter-spacing:1px;text-transform:uppercase;}
+  .tagline{color:var(--chalk-dim);font-size:13px;margin-bottom:22px;line-height:1.5;border-bottom:1px dashed var(--card-line);padding-bottom:16px;}
+  .screen{display:none;flex-direction:column;flex:1;}
+  .screen.active{display:flex;}
+
+  .field{margin-bottom:12px;}
+  .field label{font-size:12px;color:var(--chalk-dim);display:block;margin-bottom:6px;}
+  input[type=email],input[type=password],input[type=text],select,textarea{
+    width:100%;background:rgba(0,0,0,0.2);border:1px solid var(--card-line);border-radius:8px;
+    padding:12px;color:var(--chalk);font-size:14px;font-family:inherit;
+  }
+  textarea{resize:vertical;min-height:60px;}
+  input::placeholder{color:var(--chalk-dim);}
+
+  .btn{padding:14px;border-radius:var(--radius);border:none;font-size:15px;font-weight:600;cursor:pointer;font-family:inherit;}
+  .btn-primary{background:var(--accent);color:var(--board);}
+  .btn-primary:active{background:var(--accent-dark);}
+  .btn-ghost{background:transparent;border:1px solid var(--card-line);color:var(--chalk);}
+  .btn-danger{background:var(--bad);color:#2A1512;}
+  .btn-full{width:100%;}
+
+  .error-msg{color:var(--bad);font-size:13px;margin-bottom:12px;min-height:16px;}
+  .muted{color:var(--chalk-dim);font-size:12px;}
+  .top-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;}
+  .link-btn{background:none;border:none;color:var(--accent);font-size:13px;text-decoration:underline;cursor:pointer;font-family:inherit;padding:0;}
+  .tab-row{display:flex;gap:8px;margin-bottom:20px;}
+  .tab{flex:1;text-align:center;padding:10px;border-radius:8px;font-size:13px;cursor:pointer;
+    background:var(--card);color:var(--chalk-dim);border:1px solid var(--card-line);}
+  .tab.active{background:var(--accent);color:var(--board);font-weight:700;border-color:var(--accent);}
+
+  .section-title{font-size:13px;color:var(--chalk-dim);margin:22px 0 10px;text-transform:uppercase;letter-spacing:1px;}
+  .loading{text-align:center;color:var(--chalk-dim);font-size:13px;padding:20px;}
+  .empty-note{color:var(--chalk-dim);font-size:13px;text-align:center;padding:24px 10px;font-style:italic;}
+
+  .admin-q-item{background:var(--card);border:1px solid var(--card-line);border-radius:8px;padding:12px 14px;margin-bottom:8px;font-size:13px;}
+  .admin-q-item .cat-tag{display:inline-block;font-size:10px;background:var(--accent);color:var(--board);padding:2px 7px;border-radius:10px;font-weight:700;margin-bottom:6px;}
+  .admin-q-item .del-btn{float:right;background:none;border:none;color:var(--bad);cursor:pointer;font-size:12px;font-family:inherit;}
+  .admin-q-item .opts{margin-top:8px;font-size:12px;color:var(--chalk-dim);}
+  .admin-q-item .opts .ok{color:var(--good);font-weight:700;}
+
+  .stat-row{display:flex;gap:10px;margin-bottom:20px;}
+  .stat-box{flex:1;background:var(--card);border:1px solid var(--card-line);border-radius:8px;padding:12px;text-align:center;}
+  .stat-box .n{font-size:22px;font-weight:700;font-family:'Courier New',monospace;color:var(--accent);}
+  .stat-box .l{font-size:11px;color:var(--chalk-dim);margin-top:2px;}
+
+  .score-row{display:flex;justify-content:space-between;align-items:center;background:var(--card);border:1px solid var(--card-line);border-radius:8px;padding:10px 14px;margin-bottom:6px;font-size:13px;}
+  .score-row .name{font-weight:600;}
+  .score-row .meta{color:var(--chalk-dim);font-size:11px;}
+  .score-row .pts{font-family:'Courier New',monospace;font-weight:700;}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- LOGIN (admin only, no signup here) -->
+  <div id="screen-login" class="screen active">
+    <div class="brand"><h1>Chalk &amp; Score</h1><span>Admin</span></div>
+    <div class="tagline">Sign in with the admin account to manage questions and monitor scores. Students use the separate student app to sign up.</div>
+    <div class="error-msg" id="auth-error"></div>
+    <div class="field"><label>Email</label><input type="email" id="login-email" placeholder="you@example.com"></div>
+    <div class="field"><label>Password</label><input type="password" id="login-password" placeholder="••••••••"></div>
+    <button class="btn btn-primary btn-full" onclick="doLogin()">Log In</button>
+    <div class="muted" style="margin-top:14px;">First time? Create the admin account once in the Firebase Console (Authentication → Add user) using the email set as ADMIN_EMAIL in this file.</div>
+  </div>
+
+  <!-- DASHBOARD -->
+  <div id="screen-dash" class="screen">
+    <div class="top-row">
+      <div>
+        <h1 style="font-size:20px;">Admin Dashboard</h1>
+        <div class="muted" id="welcome-line">Signed in</div>
+      </div>
+      <button class="link-btn" onclick="doLogout()">Log Out</button>
+    </div>
+
+    <div class="tab-row">
+      <div class="tab active" id="tab-questions" onclick="switchTab('questions')">Questions</div>
+      <div class="tab" id="tab-scores" onclick="switchTab('scores')">Scores</div>
+    </div>
+
+    <!-- QUESTIONS TAB -->
+    <div id="panel-questions">
+      <div class="field"><label>Category</label><input type="text" id="adm-category" placeholder="e.g. Science"></div>
+      <div class="field"><label>Question</label><textarea id="adm-question" placeholder="Enter the question text"></textarea></div>
+      <div class="field"><label>Option A</label><input type="text" id="adm-opt-0"></div>
+      <div class="field"><label>Option B</label><input type="text" id="adm-opt-1"></div>
+      <div class="field"><label>Option C</label><input type="text" id="adm-opt-2"></div>
+      <div class="field"><label>Option D</label><input type="text" id="adm-opt-3"></div>
+      <div class="field">
+        <label>Correct Option</label>
+        <select id="adm-correct">
+          <option value="0">A</option><option value="1">B</option><option value="2">C</option><option value="3">D</option>
+        </select>
+      </div>
+      <div class="error-msg" id="adm-error"></div>
+      <button class="btn btn-primary btn-full" onclick="addQuestion()">Add Question</button>
+
+      <div class="section-title">Existing questions</div>
+      <div id="adm-list"><div class="loading">Loading…</div></div>
+    </div>
+
+    <!-- SCORES TAB -->
+    <div id="panel-scores" style="display:none;">
+      <div class="stat-row">
+        <div class="stat-box"><div class="n" id="stat-total-attempts">0</div><div class="l">attempts</div></div>
+        <div class="stat-box"><div class="n" id="stat-avg-score">0</div><div class="l">avg score</div></div>
+        <div class="stat-box"><div class="n" id="stat-top-score">0</div><div class="l">top score</div></div>
+      </div>
+      <div class="section-title">All attempts (latest first)</div>
+      <div id="scores-list"><div class="loading">Loading…</div></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+/* =========================================================================
+   Uses the SAME Firebase project as the student app.
+   Paste the identical config below, and set ADMIN_EMAIL to your email —
+   this app refuses access to any other account.
+
+   One-time: create your own admin login in Firebase Console →
+   Authentication → Users → Add user (email + password), rather than
+   signing up here (this app has no sign-up form on purpose).
+========================================================================= */
+
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyDZVhGxy8mHY504gZqR-FofTo0pNZtPCKc",
+  authDomain: "quiz-final-2c1ae.firebaseapp.com",
+  projectId: "quiz-final-2c1ae",
+  storageBucket: "quiz-final-2c1ae.firebasestorage.app",
+  messagingSenderId: "653904727003",
+  appId: "1:653904727003:web:7c76bc3c00523374d135fe"
+};
+const ADMIN_EMAIL = "ashwinvatkar@gmail.com"; // <-- must match the student app's ADMIN_EMAIL
+
+firebase.initializeApp(FIREBASE_CONFIG);
+const auth = firebase.auth();
+const db = firebase.firestore();
+
+function show(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+
+/* ---------------- AUTH ---------------- */
+function setAuthError(msg){ document.getElementById('auth-error').textContent = msg || ''; }
+
+function doLogin(){
+  const email = document.getElementById('login-email').value.trim();
+  const pass = document.getElementById('login-password').value;
+  if(!email || !pass){ setAuthError('Please enter email and password.'); return; }
+  setAuthError('Logging in…');
+  auth.signInWithEmailAndPassword(email, pass)
+    .then(()=> setAuthError(''))
+    .catch(err=> setAuthError(err.message));
+}
+function doLogout(){ auth.signOut(); }
+
+auth.onAuthStateChanged(user=>{
+  if(user){
+    if((user.email||'').toLowerCase() !== ADMIN_EMAIL.toLowerCase()){
+      setAuthError('This account is not authorized as admin.');
+      auth.signOut();
+      return;
+    }
+    document.getElementById('welcome-line').textContent = 'Signed in as ' + user.email;
+    show('screen-dash');
+    loadAdminList();
+  } else {
+    show('screen-login');
+  }
+});
+
+/* ---------------- TABS ---------------- */
+function switchTab(which){
+  document.getElementById('tab-questions').classList.toggle('active', which==='questions');
+  document.getElementById('tab-scores').classList.toggle('active', which==='scores');
+  document.getElementById('panel-questions').style.display = which==='questions' ? 'block':'none';
+  document.getElementById('panel-scores').style.display = which==='scores' ? 'block':'none';
+  if(which==='scores') loadScores();
+}
+
+/* ---------------- QUESTIONS ---------------- */
+function addQuestion(){
+  const category = document.getElementById('adm-category').value.trim();
+  const question = document.getElementById('adm-question').value.trim();
+  const opts = [0,1,2,3].map(i=>document.getElementById('adm-opt-'+i).value.trim());
+  const correct = parseInt(document.getElementById('adm-correct').value,10);
+  const err = document.getElementById('adm-error');
+
+  if(!category || !question || opts.some(o=>!o)){
+    err.textContent = 'Please fill in category, question, and all four options.'; return;
+  }
+  err.textContent = 'Saving…';
+  db.collection('questions').add({
+    category, q: question, o: opts, c: correct,
+    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+  }).then(()=>{
+    err.textContent = '';
+    document.getElementById('adm-question').value = '';
+    [0,1,2,3].forEach(i=>document.getElementById('adm-opt-'+i).value = '');
+    loadAdminList();
+  }).catch(e=> err.textContent = e.message);
+}
+
+function loadAdminList(){
+  const wrap = document.getElementById('adm-list');
+  wrap.innerHTML = '<div class="loading">Loading…</div>';
+  db.collection('questions').orderBy('category').get().then(snap=>{
+    if(snap.empty){ wrap.innerHTML = '<div class="empty-note">No questions added yet.</div>'; return; }
+    wrap.innerHTML = '';
+    const letters = ['A','B','C','D'];
+    snap.forEach(doc=>{
+      const d = doc.data();
+      const div = document.createElement('div');
+      div.className = 'admin-q-item';
+      const optsHtml = d.o.map((o,i)=>`<div class="${i===d.c?'ok':''}">${letters[i]}. ${escapeHtml(o)}${i===d.c?' ✓':''}</div>`).join('');
+      div.innerHTML = `<button class="del-btn" onclick="deleteQuestion('${doc.id}')">Delete</button>
+        <div class="cat-tag">${escapeHtml(d.category)}</div>
+        <div>${escapeHtml(d.q)}</div>
+        <div class="opts">${optsHtml}</div>`;
+      wrap.appendChild(div);
+    });
+  });
+}
+function deleteQuestion(id){
+  if(!confirm('Delete this question?')) return;
+  db.collection('questions').doc(id).delete().then(loadAdminList);
+}
+
+/* ---------------- SCORES ---------------- */
+function loadScores(){
+  const wrap = document.getElementById('scores-list');
+  wrap.innerHTML = '<div class="loading">Loading…</div>';
+  db.collection('scores').orderBy('timestamp','desc').limit(100).get().then(snap=>{
+    if(snap.empty){
+      wrap.innerHTML = '<div class="empty-note">No attempts yet.</div>';
+      document.getElementById('stat-total-attempts').textContent = '0';
+      document.getElementById('stat-avg-score').textContent = '0';
+      document.getElementById('stat-top-score').textContent = '0';
+      return;
+    }
+    wrap.innerHTML = '';
+    let total=0, sum=0, top=0;
+    snap.forEach(doc=>{
+      const d = doc.data();
+      total++; sum += d.score; if(d.score>top) top=d.score;
+      const row = document.createElement('div');
+      row.className = 'score-row';
+      const when = d.timestamp && d.timestamp.toDate ? d.timestamp.toDate().toLocaleString() : '';
+      row.innerHTML = `<div><div class="name">${escapeHtml(d.name)}</div>
+          <div class="meta">${escapeHtml(d.category)} · ${when}</div></div>
+        <div class="pts">${d.score}</div>`;
+      wrap.appendChild(row);
+    });
+    document.getElementById('stat-total-attempts').textContent = total;
+    document.getElementById('stat-avg-score').textContent = Math.round(sum/total);
+    document.getElementById('stat-top-score').textContent = top;
+  }).catch(err=>{
+    wrap.innerHTML = '<div class="empty-note">Could not load scores: '+escapeHtml(err.message)+'</div>';
+  });
+}
+</script>
+</body>
+</html>

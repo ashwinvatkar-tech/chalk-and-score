@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Chalk & Score</title>
+
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+
+<style>
+  :root{
+    --board:#2F3E36; --chalk:#F1EFE6; --chalk-dim:#B9C4BB;
+    --accent:#E8C468; --accent-dark:#C9A24E; --good:#7FB88A; --bad:#D07A6E;
+    --card:#3A4A41; --card-line:rgba(241,239,230,0.14); --radius:10px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--board); color:var(--chalk);
+    font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+    min-height:100vh; display:flex; justify-content:center; -webkit-tap-highlight-color:transparent;
+  }
+  .app{width:100%;max-width:480px;min-height:100vh;padding:24px 20px 40px;display:flex;flex-direction:column;}
+  h1,h2{font-family:Georgia,'Times New Roman',serif;font-weight:700;margin:0;}
+  .brand{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:6px;}
+  .brand h1{font-size:24px;}
+  .brand span{font-size:12px;color:var(--chalk-dim);font-style:italic;}
+  .tagline{color:var(--chalk-dim);font-size:13px;margin-bottom:22px;line-height:1.5;border-bottom:1px dashed var(--card-line);padding-bottom:16px;}
+  .screen{display:none;flex-direction:column;flex:1;}
+  .screen.active{display:flex;}
+
+  .field{margin-bottom:12px;}
+  .field label{font-size:12px;color:var(--chalk-dim);display:block;margin-bottom:6px;}
+  input[type=text],input[type=email],input[type=password]{
+    width:100%;background:rgba(0,0,0,0.2);border:1px solid var(--card-line);border-radius:8px;
+    padding:12px;color:var(--chalk);font-size:14px;font-family:inherit;
+  }
+  input::placeholder{color:var(--chalk-dim);}
+
+  .btn{padding:14px;border-radius:var(--radius);border:none;font-size:15px;font-weight:600;cursor:pointer;font-family:inherit;}
+  .btn-primary{background:var(--accent);color:var(--board);}
+  .btn-primary:active{background:var(--accent-dark);}
+  .btn-ghost{background:transparent;border:1px solid var(--card-line);color:var(--chalk);}
+  .btn-ghost:disabled{opacity:0.35;cursor:default;}
+  .btn-danger{background:var(--bad);color:#2A1512;}
+  .btn-full{width:100%;}
+
+  .tab-row{display:flex;gap:8px;margin-bottom:20px;}
+  .tab{flex:1;text-align:center;padding:10px;border-radius:8px;font-size:13px;cursor:pointer;
+    background:var(--card);color:var(--chalk-dim);border:1px solid var(--card-line);}
+  .tab.active{background:var(--accent);color:var(--board);font-weight:700;border-color:var(--accent);}
+
+  .error-msg{color:var(--bad);font-size:13px;margin-bottom:12px;min-height:16px;}
+  .muted{color:var(--chalk-dim);font-size:12px;}
+
+  .cat-list{display:flex;flex-direction:column;gap:12px;}
+  .cat-btn{
+    background:var(--card);border:1px solid var(--card-line);border-radius:var(--radius);
+    padding:16px 18px;color:var(--chalk);text-align:left;cursor:pointer;display:flex;
+    justify-content:space-between;align-items:center;font-size:16px;font-family:inherit;
+  }
+  .cat-btn .name{font-weight:600;}
+  .cat-btn .meta{color:var(--chalk-dim);font-size:12px;margin-top:4px;font-weight:400;}
+  .cat-btn .arrow{color:var(--accent);font-size:20px;}
+  .empty-note{color:var(--chalk-dim);font-size:13px;text-align:center;padding:30px 10px;font-style:italic;}
+
+  .top-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;}
+  .link-btn{background:none;border:none;color:var(--accent);font-size:13px;text-decoration:underline;cursor:pointer;font-family:inherit;padding:0;}
+  .back-btn{background:none;border:none;color:var(--chalk-dim);font-size:14px;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:6px;padding:0;}
+
+  .timer{font-family:'Courier New',monospace;background:rgba(0,0,0,0.25);padding:6px 12px;border-radius:8px;font-size:15px;letter-spacing:1px;border:1px solid var(--card-line);}
+  .timer.low{color:var(--bad);border-color:var(--bad);}
+  .progress-row{display:flex;justify-content:space-between;font-size:12px;color:var(--chalk-dim);margin-bottom:6px;}
+  .progress-bar{height:5px;background:rgba(0,0,0,0.25);border-radius:4px;overflow:hidden;margin-bottom:22px;}
+  .progress-fill{height:100%;background:var(--accent);transition:width .25s ease;}
+
+  .q-card{background:var(--card);border:1px solid var(--card-line);border-radius:var(--radius);padding:20px;margin-bottom:18px;}
+  .q-marks{display:inline-block;font-size:11px;color:var(--board);background:var(--accent);padding:3px 8px;border-radius:20px;font-weight:700;margin-bottom:12px;}
+  .q-text{font-size:17px;line-height:1.5;}
+
+  .options{display:flex;flex-direction:column;gap:10px;margin-bottom:20px;}
+  .opt-btn{background:var(--card);border:1px solid var(--card-line);border-radius:var(--radius);padding:13px 14px;color:var(--chalk);text-align:left;cursor:pointer;font-size:15px;font-family:inherit;display:flex;align-items:center;gap:10px;}
+  .opt-letter{width:22px;height:22px;border-radius:50%;border:1px solid var(--chalk-dim);display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0;color:var(--chalk-dim);}
+  .opt-btn.selected{border-color:var(--accent);background:rgba(232,196,104,0.12);}
+  .opt-btn.selected .opt-letter{background:var(--accent);border-color:var(--accent);color:var(--board);}
+  .opt-btn.correct{border-color:var(--good);background:rgba(127,184,138,0.14);}
+  .opt-btn.correct .opt-letter{background:var(--good);border-color:var(--good);color:var(--board);}
+  .opt-btn.incorrect{border-color:var(--bad);background:rgba(208,122,110,0.14);}
+  .opt-btn.incorrect .opt-letter{background:var(--bad);border-color:var(--bad);color:var(--board);}
+
+  .nav-row{display:flex;gap:10px;margin-top:auto;}
+
+  .score-hero{text-align:center;padding:26px 0 18px;}
+  .score-num{font-family:'Courier New',monospace;font-size:60px;font-weight:700;color:var(--accent);line-height:1;}
+  .score-out{color:var(--chalk-dim);font-size:15px;}
+  .score-msg{margin-top:8px;font-size:14px;color:var(--chalk-dim);font-style:italic;}
+  .stat-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin:20px 0;}
+  .stat{background:var(--card);border:1px solid var(--card-line);border-radius:var(--radius);padding:12px 8px;text-align:center;}
+  .stat .n{font-size:20px;font-weight:700;font-family:'Courier New',monospace;}
+  .stat .l{font-size:11px;color:var(--chalk-dim);margin-top:2px;}
+  .stat.good .n{color:var(--good);} .stat.bad .n{color:var(--bad);}
+
+  .review-item{background:var(--card);border:1px solid var(--card-line);border-radius:var(--radius);padding:14px 16px;margin-bottom:12px;}
+  .review-q{font-size:14px;margin-bottom:10px;line-height:1.5;}
+  .review-opt{font-size:13px;padding:8px 10px;border-radius:8px;margin-bottom:6px;border:1px solid var(--card-line);}
+  .review-opt.correct{border-color:var(--good);background:rgba(127,184,138,0.1);}
+  .review-opt.incorrect{border-color:var(--bad);background:rgba(208,122,110,0.1);}
+  .review-opt.skip{opacity:0.5;}
+  .tag{font-size:10px;padding:2px 6px;border-radius:6px;margin-left:6px;font-weight:700;}
+  .tag.correct{background:var(--good);color:var(--board);} .tag.incorrect{background:var(--bad);color:var(--board);}
+
+  .lb-row{display:flex;align-items:center;justify-content:space-between;background:var(--card);border:1px solid var(--card-line);border-radius:8px;padding:12px 14px;margin-bottom:8px;}
+  .lb-row.me{border-color:var(--accent);}
+  .lb-rank{font-family:'Courier New',monospace;color:var(--accent);font-weight:700;width:26px;}
+  .lb-name{font-weight:600;font-size:14px;} .lb-cat{font-size:11px;color:var(--chalk-dim);}
+  .lb-score{font-family:'Courier New',monospace;font-weight:700;font-size:16px;}
+  .loading{text-align:center;color:var(--chalk-dim);font-size:13px;padding:20px;}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- AUTH -->
+  <div id="screen-auth" class="screen active">
+    <div class="brand"><h1>Chalk &amp; Score</h1><span>competition</span></div>
+    <div class="tagline">Sign in with your student account to compete. New here? Create an account below.</div>
+
+    <div class="tab-row">
+      <div class="tab active" id="tab-login" onclick="switchAuthTab('login')">Log In</div>
+      <div class="tab" id="tab-signup" onclick="switchAuthTab('signup')">Sign Up</div>
+    </div>
+
+    <div class="error-msg" id="auth-error"></div>
+
+    <div id="form-login">
+      <div class="field"><label>Email</label><input type="email" id="login-email" placeholder="you@example.com"></div>
+      <div class="field"><label>Password</label><input type="password" id="login-password" placeholder="••••••••"></div>
+      <button class="btn btn-primary btn-full" onclick="doLogin()">Log In</button>
+    </div>
+
+    <div id="form-signup" style="display:none;">
+      <div class="field"><label>Full Name</label><input type="text" id="signup-name" placeholder="Jane Student"></div>
+      <div class="field"><label>Class / Grade (optional)</label><input type="text" id="signup-class" placeholder="Grade 10"></div>
+      <div class="field"><label>Email</label><input type="email" id="signup-email" placeholder="you@example.com"></div>
+      <div class="field"><label>Password (min 6 characters)</label><input type="password" id="signup-password" placeholder="••••••••"></div>
+      <button class="btn btn-primary btn-full" onclick="doSignup()">Create Account</button>
+    </div>
+  </div>
+
+  <!-- HOME -->
+  <div id="screen-home" class="screen">
+    <div class="top-row">
+      <div>
+        <h1 style="font-size:22px;">Chalk &amp; Score</h1>
+        <div class="muted" id="welcome-line">Welcome</div>
+      </div>
+      <button class="link-btn" onclick="doLogout()">Log Out</button>
+    </div>
+
+    <div class="tagline">Pick a subject to compete. Marks are split evenly across each subject's questions to total 100.</div>
+
+    <div id="cat-list-wrap">
+      <div class="loading">Loading subjects…</div>
+    </div>
+
+    <div class="link-row" style="margin-top:18px;">
+      <button class="link-btn" onclick="showLeaderboard()">View leaderboard</button>
+    </div>
+  </div>
+
+  <!-- QUIZ -->
+  <div id="screen-quiz" class="screen">
+    <div class="top-row">
+      <div class="muted" id="quiz-cat-label">Category</div>
+      <div class="timer" id="timer">--:--</div>
+    </div>
+    <div class="progress-row"><span id="progress-label">Question 1</span><span id="marks-label">0 / 100 marks</span></div>
+    <div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
+    <div class="q-card">
+      <div class="q-marks" id="q-marks">10 marks</div>
+      <div class="q-text" id="q-text">Question text</div>
+    </div>
+    <div class="options" id="options"></div>
+    <div class="nav-row">
+      <button class="btn btn-ghost" id="btn-prev" onclick="prevQ()">Back</button>
+      <button class="btn btn-primary" id="btn-next" onclick="nextQ()">Next</button>
+    </div>
+    <button class="btn btn-danger btn-full" style="margin-top:12px;" onclick="confirmSubmit()">Submit Quiz</button>
+  </div>
+
+  <!-- RESULT -->
+  <div id="screen-result" class="screen">
+    <div class="score-hero">
+      <div class="score-num" id="final-score">0</div>
+      <div class="score-out">out of 100</div>
+      <div class="score-msg" id="score-msg"></div>
+    </div>
+    <div class="stat-grid">
+      <div class="stat good"><div class="n" id="stat-correct">0</div><div class="l">correct</div></div>
+      <div class="stat bad"><div class="n" id="stat-wrong">0</div><div class="l">wrong</div></div>
+      <div class="stat"><div class="n" id="stat-skipped">0</div><div class="l">skipped</div></div>
+    </div>
+    <div class="muted" id="save-status" style="text-align:center;margin-bottom:14px;">Saving to leaderboard…</div>
+    <button class="btn btn-ghost btn-full" onclick="showReview()">Review Answers</button>
+    <button class="btn btn-primary btn-full" style="margin-top:10px;" onclick="goHome()">Back to Home</button>
+  </div>
+
+  <!-- REVIEW -->
+  <div id="screen-review" class="screen">
+    <div class="back-row" style="margin-bottom:16px;"><button class="back-btn" onclick="show('screen-result')">&larr; Back to result</button></div>
+    <h2 style="margin-bottom:16px;font-size:20px;">Answer Review</h2>
+    <div id="review-list"></div>
+    <button class="btn btn-primary btn-full" onclick="goHome()">Back to Home</button>
+  </div>
+
+  <!-- LEADERBOARD -->
+  <div id="screen-leaderboard" class="screen">
+    <div class="back-row" style="margin-bottom:16px;"><button class="back-btn" onclick="goHome()">&larr; Back to home</button></div>
+    <h2 style="margin-bottom:16px;font-size:20px;">Leaderboard</h2>
+    <div id="lb-list"><div class="loading">Loading…</div></div>
+  </div>
+
+</div>
+
+<script>
+/* =========================================================================
+   Uses the SAME Firebase project/config as the admin app, so both apps
+   read and write the same questions/scores. Paste the identical config
+   you used in admin_app.html below.
+========================================================================= */
+
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyDZVhGxy8mHY504gZqR-FofTo0pNZtPCKc",
+  authDomain: "quiz-final-2c1ae.firebaseapp.com",
+  projectId: "quiz-final-2c1ae",
+  storageBucket: "quiz-final-2c1ae.firebasestorage.app",
+  messagingSenderId: "653904727003",
+  appId: "1:653904727003:web:7c76bc3c00523374d135fe"
+};
+
+firebase.initializeApp(FIREBASE_CONFIG);
+const auth = firebase.auth();
+const db = firebase.firestore();
+
+const NEG_MARK = 2;
+const SECONDS_PER_QUESTION = 90;
+
+let state = {
+  user: null,
+  profile: null,
+  category: null,
+  questions: [],
+  marksPerQ: [],
+  answers: [],
+  current: 0,
+  timeLeft: 0,
+  timerHandle: null
+};
+
+/* ---------------- SCREEN HELPERS ---------------- */
+function show(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+function goHome(){ stopTimer(); show('screen-home'); loadCategories(); }
+
+/* ---------------- AUTH ---------------- */
+function switchAuthTab(which){
+  document.getElementById('tab-login').classList.toggle('active', which==='login');
+  document.getElementById('tab-signup').classList.toggle('active', which==='signup');
+  document.getElementById('form-login').style.display = which==='login' ? 'block':'none';
+  document.getElementById('form-signup').style.display = which==='signup' ? 'block':'none';
+  document.getElementById('auth-error').textContent = '';
+}
+function setAuthError(msg){ document.getElementById('auth-error').textContent = msg || ''; }
+
+function doSignup(){
+  const name = document.getElementById('signup-name').value.trim();
+  const cls = document.getElementById('signup-class').value.trim();
+  const email = document.getElementById('signup-email').value.trim();
+  const pass = document.getElementById('signup-password').value;
+  if(!name || !email || !pass){ setAuthError('Please fill in name, email, and password.'); return; }
+  if(pass.length < 6){ setAuthError('Password must be at least 6 characters.'); return; }
+  setAuthError('Creating account…');
+  auth.createUserWithEmailAndPassword(email, pass)
+    .then(cred=>{
+      return db.collection('students').doc(cred.user.uid).set({
+        name, class: cls || null, email, createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    })
+    .then(()=> setAuthError(''))
+    .catch(err=> setAuthError(err.message));
+}
+
+function doLogin(){
+  const email = document.getElementById('login-email').value.trim();
+  const pass = document.getElementById('login-password').value;
+  if(!email || !pass){ setAuthError('Please enter email and password.'); return; }
+  setAuthError('Logging in…');
+  auth.signInWithEmailAndPassword(email, pass)
+    .then(()=> setAuthError(''))
+    .catch(err=> setAuthError(err.message));
+}
+
+function doLogout(){ auth.signOut(); }
+
+auth.onAuthStateChanged(user=>{
+  stopTimer();
+  if(user){
+    state.user = user;
+    db.collection('students').doc(user.uid).get().then(doc=>{
+      state.profile = doc.exists ? doc.data() : {name:user.email};
+      document.getElementById('welcome-line').textContent = 'Signed in as ' + (state.profile.name || user.email);
+      show('screen-home');
+      loadCategories();
+    });
+  } else {
+    state.user = null; state.profile = null;
+    show('screen-auth');
+  }
+});
+
+/* ---------------- CATEGORIES / HOME ---------------- */
+function loadCategories(){
+  const wrap = document.getElementById('cat-list-wrap');
+  wrap.innerHTML = '<div class="loading">Loading subjects…</div>';
+  db.collection('questions').get().then(snap=>{
+    const byCategory = {};
+    snap.forEach(doc=>{
+      const d = doc.data();
+      if(!byCategory[d.category]) byCategory[d.category] = 0;
+      byCategory[d.category]++;
+    });
+    const keys = Object.keys(byCategory);
+    if(keys.length === 0){
+      wrap.innerHTML = '<div class="empty-note">No questions added yet. Check back once the organizer adds some.</div>';
+      return;
+    }
+    wrap.innerHTML = '';
+    const list = document.createElement('div');
+    list.className = 'cat-list';
+    keys.sort().forEach(cat=>{
+      const btn = document.createElement('button');
+      btn.className = 'cat-btn';
+      btn.onclick = ()=>startQuiz(cat);
+      btn.innerHTML = `<div><div class="name">${escapeHtml(cat)}</div>
+        <div class="meta">${byCategory[cat]} question${byCategory[cat]>1?'s':''} · 100 marks total</div></div>
+        <div class="arrow">→</div>`;
+      list.appendChild(btn);
+    });
+    wrap.appendChild(list);
+  }).catch(err=>{
+    wrap.innerHTML = '<div class="empty-note">Could not load subjects: '+escapeHtml(err.message)+'</div>';
+  });
+}
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+
+/* ---------------- QUIZ FLOW ---------------- */
+function startQuiz(category){
+  db.collection('questions').where('category','==',category).get().then(snap=>{
+    const qs = [];
+    snap.forEach(doc=> qs.push(doc.data()));
+    if(qs.length === 0){ alert('No questions in this subject yet.'); return; }
+    state.category = category;
+    state.questions = qs;
+    state.answers = new Array(qs.length).fill(null);
+    state.current = 0;
+
+    const base = Math.floor(100 / qs.length);
+    const remainder = 100 - base*qs.length;
+    state.marksPerQ = qs.map((_,i)=> base + (i === qs.length-1 ? remainder : 0));
+
+    state.timeLeft = qs.length * SECONDS_PER_QUESTION;
+    document.getElementById('quiz-cat-label').textContent = category;
+    show('screen-quiz');
+    renderQuestion();
+    startTimer();
+  });
+}
+
+function startTimer(){
+  stopTimer();
+  updateTimerDisplay();
+  state.timerHandle = setInterval(()=>{
+    state.timeLeft--;
+    updateTimerDisplay();
+    if(state.timeLeft <= 0){ stopTimer(); finishQuiz(); }
+  }, 1000);
+}
+function stopTimer(){ if(state.timerHandle){ clearInterval(state.timerHandle); state.timerHandle=null; } }
+function updateTimerDisplay(){
+  const m = Math.floor(state.timeLeft/60), s = state.timeLeft%60;
+  const el = document.getElementById('timer');
+  el.textContent = `${m}:${s.toString().padStart(2,'0')}`;
+  el.classList.toggle('low', state.timeLeft <= 30);
+}
+
+function renderQuestion(){
+  const q = state.questions[state.current];
+  document.getElementById('q-marks').textContent = state.marksPerQ[state.current] + ' marks';
+  document.getElementById('q-text').textContent = q.q;
+  document.getElementById('progress-label').textContent = `Question ${state.current+1} of ${state.questions.length}`;
+
+  let marksSoFar = 0;
+  state.answers.forEach((a,i)=>{
+    if(a===null) return;
+    marksSoFar += (a===state.questions[i].c ? state.marksPerQ[i] : -NEG_MARK);
+  });
+  document.getElementById('marks-label').textContent = `${Math.max(marksSoFar,0)} / 100 so far`;
+  document.getElementById('progress-fill').style.width = `${((state.current+1)/state.questions.length)*100}%`;
+
+  const optWrap = document.getElementById('options');
+  optWrap.innerHTML = '';
+  const letters = ['A','B','C','D'];
+  q.o.forEach((optText, idx)=>{
+    const b = document.createElement('button');
+    b.className = 'opt-btn' + (state.answers[state.current]===idx ? ' selected' : '');
+    b.innerHTML = `<span class="opt-letter">${letters[idx]}</span><span>${escapeHtml(optText)}</span>`;
+    b.onclick = ()=>{ state.answers[state.current]=idx; renderQuestion(); };
+    optWrap.appendChild(b);
+  });
+
+  document.getElementById('btn-prev').disabled = state.current === 0;
+  document.getElementById('btn-next').textContent = state.current === state.questions.length-1 ? 'Finish' : 'Next';
+}
+function nextQ(){
+  if(state.current === state.questions.length-1) confirmSubmit();
+  else { state.current++; renderQuestion(); }
+}
+function prevQ(){ if(state.current>0){ state.current--; renderQuestion(); } }
+
+function confirmSubmit(){
+  const unanswered = state.answers.filter(a=>a===null).length;
+  const msg = unanswered>0
+    ? `You have ${unanswered} unanswered question${unanswered>1?'s':''}. Submit anyway?`
+    : 'Submit your quiz now?';
+  if(confirm(msg)) finishQuiz();
+}
+
+function finishQuiz(){
+  stopTimer();
+  show('screen-result');
+  renderResult();
+}
+
+/* ---------------- SCORING & SAVE ---------------- */
+function computeScore(){
+  let correct=0, wrong=0, skipped=0, score=0;
+  state.answers.forEach((a,i)=>{
+    if(a===null){ skipped++; return; }
+    if(a===state.questions[i].c){ correct++; score+=state.marksPerQ[i]; }
+    else { wrong++; score-=NEG_MARK; }
+  });
+  score = Math.max(score,0);
+  return {correct,wrong,skipped,score};
+}
+
+function renderResult(){
+  const r = computeScore();
+  document.getElementById('final-score').textContent = r.score;
+  document.getElementById('stat-correct').textContent = r.correct;
+  document.getElementById('stat-wrong').textContent = r.wrong;
+  document.getElementById('stat-skipped').textContent = r.skipped;
+  let msg = r.score>=80 ? 'Outstanding work.' : r.score>=60 ? 'Solid performance.' : r.score>=40 ? 'Room to sharpen up.' : 'Worth another attempt.';
+  document.getElementById('score-msg').textContent = msg;
+
+  document.getElementById('save-status').textContent = 'Saving to leaderboard…';
+  db.collection('scores').add({
+    uid: state.user.uid,
+    name: (state.profile && state.profile.name) || state.user.email,
+    category: state.category,
+    score: r.score,
+    correct: r.correct,
+    wrong: r.wrong,
+    skipped: r.skipped,
+    timestamp: firebase.firestore.FieldValue.serverTimestamp()
+  }).then(()=>{
+    document.getElementById('save-status').textContent = 'Saved to leaderboard ✓';
+  }).catch(err=>{
+    document.getElementById('save-status').textContent = 'Could not save: ' + err.message;
+  });
+}
+
+/* ---------------- REVIEW ---------------- */
+function showReview(){
+  show('screen-review');
+  const list = document.getElementById('review-list');
+  list.innerHTML = '';
+  const letters = ['A','B','C','D'];
+  state.questions.forEach((q,i)=>{
+    const userAns = state.answers[i];
+    const div = document.createElement('div');
+    div.className = 'review-item';
+    let tag = userAns===null ? '<span class="tag incorrect">SKIPPED</span>'
+      : (userAns===q.c ? '<span class="tag correct">CORRECT</span>' : '<span class="tag incorrect">WRONG</span>');
+    let optsHtml = '';
+    q.o.forEach((optText, idx)=>{
+      let cls = 'review-opt';
+      if(idx===q.c) cls+=' correct'; else if(idx===userAns) cls+=' incorrect'; else cls+=' skip';
+      optsHtml += `<div class="${cls}">${letters[idx]}. ${escapeHtml(optText)}</div>`;
+    });
+    div.innerHTML = `<div class="review-q">Q${i+1}. ${escapeHtml(q.q)} ${tag}</div>${optsHtml}`;
+    list.appendChild(div);
+  });
+}
+
+/* ---------------- LEADERBOARD (live) ---------------- */
+let lbUnsub = null;
+function showLeaderboard(){
+  show('screen-leaderboard');
+  const list = document.getElementById('lb-list');
+  list.innerHTML = '<div class="loading">Loading…</div>';
+  if(lbUnsub) lbUnsub();
+  lbUnsub = db.collection('scores').orderBy('score','desc').limit(50)
+    .onSnapshot(snap=>{
+      if(snap.empty){ list.innerHTML = '<div class="empty-note">No scores yet. Be the first to compete.</div>'; return; }
+      list.innerHTML = '';
+      let i = 0;
+      snap.forEach(doc=>{
+        i++;
+        const d = doc.data();
+        const row = document.createElement('div');
+        row.className = 'lb-row' + (d.uid===state.user.uid ? ' me' : '');
+        row.innerHTML = `<div style="display:flex;align-items:center;gap:12px;">
+            <div class="lb-rank">#${i}</div>
+            <div><div class="lb-name">${escapeHtml(d.name)}</div><div class="lb-cat">${escapeHtml(d.category)}</div></div>
+          </div><div class="lb-score">${d.score}</div>`;
+        list.appendChild(row);
+      });
+    }, err=>{ list.innerHTML = '<div class="empty-note">Could not load leaderboard: '+escapeHtml(err.message)+'</div>'; });
+}
+</script>
+</body>
+</html>
