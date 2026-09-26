@@ -46,6 +46,8 @@
   .btn-ghost:disabled{opacity:0.35;cursor:default;}
   .btn-danger{background:var(--bad);color:#2A1512;}
   .btn-full{width:100%;}
+  .google-btn{background:#fff;color:#3c4043;display:flex;align-items:center;justify-content:center;}
+  .google-btn:active{background:#f1f1f1;}
 
   .tab-row{display:flex;gap:8px;margin-bottom:20px;}
   .tab{flex:1;text-align:center;padding:10px;border-radius:8px;font-size:13px;cursor:pointer;
@@ -78,6 +80,10 @@
 
   .q-card{background:var(--card);border:1px solid var(--card-line);border-radius:var(--radius);padding:20px;margin-bottom:18px;}
   .q-marks{display:inline-block;font-size:11px;color:var(--board);background:var(--accent);padding:3px 8px;border-radius:20px;font-weight:700;margin-bottom:12px;}
+  .diff-tag{display:inline-block;font-size:11px;padding:3px 8px;border-radius:20px;font-weight:700;margin-left:6px;margin-bottom:12px;}
+  .diff-easy{background:var(--good);color:var(--board);}
+  .diff-medium{background:var(--accent-dark);color:var(--board);}
+  .diff-hard{background:var(--bad);color:#2A1512;}
   .q-text{font-size:17px;line-height:1.5;}
 
   .options{display:flex;flex-direction:column;gap:10px;margin-bottom:20px;}
@@ -125,28 +131,29 @@
   <!-- AUTH -->
   <div id="screen-auth" class="screen active">
     <div class="brand"><h1>Chalk &amp; Score</h1><span>competition</span></div>
-    <div class="tagline">Sign in with your student account to compete. New here? Create an account below.</div>
-
-    <div class="tab-row">
-      <div class="tab active" id="tab-login" onclick="switchAuthTab('login')">Log In</div>
-      <div class="tab" id="tab-signup" onclick="switchAuthTab('signup')">Sign Up</div>
-    </div>
+    <div class="tagline">Sign in with your Google account to compete.</div>
 
     <div class="error-msg" id="auth-error"></div>
 
-    <div id="form-login">
-      <div class="field"><label>Email</label><input type="email" id="login-email" placeholder="you@example.com"></div>
-      <div class="field"><label>Password</label><input type="password" id="login-password" placeholder="••••••••"></div>
-      <button class="btn btn-primary btn-full" onclick="doLogin()">Log In</button>
-    </div>
+    <button class="btn btn-primary btn-full google-btn" onclick="doGoogleSignIn()">
+      <svg width="18" height="18" viewBox="0 0 48 48" style="vertical-align:middle;margin-right:8px;">
+        <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.4 29.3 35 24 35c-6.1 0-11-4.9-11-11s4.9-11 11-11c2.8 0 5.3 1 7.3 2.7l6-6C33.6 6.4 29 4.5 24 4.5 12.7 4.5 3.5 13.7 3.5 25S12.7 45.5 24 45.5 44.5 36.3 44.5 25c0-1.5-.2-3-.4-4.5z"/>
+        <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.6 15.9 18.9 13 24 13c2.8 0 5.3 1 7.3 2.7l6-6C33.6 6.4 29 4.5 24 4.5c-7.7 0-14.3 4.4-17.7 10.2z"/>
+        <path fill="#4CAF50" d="M24 45.5c5 0 9.5-1.9 12.9-5l-6.3-5.4C28.7 36.4 26.5 37 24 37c-5.3 0-9.7-3.6-11.3-8.4l-6.6 5C9.6 40.9 16.2 45.5 24 45.5z"/>
+        <path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.3 4.3-4.2 5.7l6.3 5.4C40.9 36.6 44.5 31.4 44.5 25c0-1.5-.2-3-.4-4.5z"/>
+      </svg>
+      Sign in with Google
+    </button>
+    <div class="muted" style="text-align:center;margin-top:14px;">First time signing in creates your account automatically.</div>
+  </div>
 
-    <div id="form-signup" style="display:none;">
-      <div class="field"><label>Full Name</label><input type="text" id="signup-name" placeholder="Jane Student"></div>
-      <div class="field"><label>Class / Grade (optional)</label><input type="text" id="signup-class" placeholder="Grade 10"></div>
-      <div class="field"><label>Email</label><input type="email" id="signup-email" placeholder="you@example.com"></div>
-      <div class="field"><label>Password (min 6 characters)</label><input type="password" id="signup-password" placeholder="••••••••"></div>
-      <button class="btn btn-primary btn-full" onclick="doSignup()">Create Account</button>
-    </div>
+  <!-- PROFILE COMPLETION (first-time sign-in only) -->
+  <div id="screen-profile" class="screen">
+    <div class="brand"><h1>Almost there</h1></div>
+    <div class="tagline">Just one more detail before you start competing.</div>
+    <div class="field"><label>Class / Grade (optional)</label><input type="text" id="profile-class" placeholder="Grade 10"></div>
+    <div class="error-msg" id="profile-error"></div>
+    <button class="btn btn-primary btn-full" onclick="saveProfile()">Continue</button>
   </div>
 
   <!-- HOME -->
@@ -179,7 +186,7 @@
     <div class="progress-row"><span id="progress-label">Question 1</span><span id="marks-label">0 / 100 marks</span></div>
     <div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
     <div class="q-card">
-      <div class="q-marks" id="q-marks">10 marks</div>
+      <div class="q-marks" id="q-marks">10 marks</div><span class="diff-tag" id="q-difficulty"></span>
       <div class="q-text" id="q-text">Question text</div>
     </div>
     <div class="options" id="options"></div>
@@ -266,61 +273,69 @@ function show(id){
 }
 function goHome(){ stopTimer(); show('screen-home'); loadCategories(); }
 
-/* ---------------- AUTH ---------------- */
-function switchAuthTab(which){
-  document.getElementById('tab-login').classList.toggle('active', which==='login');
-  document.getElementById('tab-signup').classList.toggle('active', which==='signup');
-  document.getElementById('form-login').style.display = which==='login' ? 'block':'none';
-  document.getElementById('form-signup').style.display = which==='signup' ? 'block':'none';
-  document.getElementById('auth-error').textContent = '';
-}
+/* ---------------- AUTH (Google Sign-In) ---------------- */
+const googleProvider = new firebase.auth.GoogleAuthProvider();
 function setAuthError(msg){ document.getElementById('auth-error').textContent = msg || ''; }
 
-function doSignup(){
-  const name = document.getElementById('signup-name').value.trim();
-  const cls = document.getElementById('signup-class').value.trim();
-  const email = document.getElementById('signup-email').value.trim();
-  const pass = document.getElementById('signup-password').value;
-  if(!name || !email || !pass){ setAuthError('Please fill in name, email, and password.'); return; }
-  if(pass.length < 6){ setAuthError('Password must be at least 6 characters.'); return; }
-  setAuthError('Creating account…');
-  auth.createUserWithEmailAndPassword(email, pass)
-    .then(cred=>{
-      return db.collection('students').doc(cred.user.uid).set({
-        name, class: cls || null, email, createdAt: firebase.firestore.FieldValue.serverTimestamp()
-      });
-    })
-    .then(()=> setAuthError(''))
-    .catch(err=> setAuthError(err.message));
-}
-
-function doLogin(){
-  const email = document.getElementById('login-email').value.trim();
-  const pass = document.getElementById('login-password').value;
-  if(!email || !pass){ setAuthError('Please enter email and password.'); return; }
-  setAuthError('Logging in…');
-  auth.signInWithEmailAndPassword(email, pass)
-    .then(()=> setAuthError(''))
-    .catch(err=> setAuthError(err.message));
+function doGoogleSignIn(){
+  setAuthError('Opening Google sign-in…');
+  auth.signInWithRedirect(googleProvider);
 }
 
 function doLogout(){ auth.signOut(); }
 
-auth.onAuthStateChanged(user=>{
-  stopTimer();
-  if(user){
-    state.user = user;
-    db.collection('students').doc(user.uid).get().then(doc=>{
-      state.profile = doc.exists ? doc.data() : {name:user.email};
-      document.getElementById('welcome-line').textContent = 'Signed in as ' + (state.profile.name || user.email);
-      show('screen-home');
-      loadCategories();
-    });
-  } else {
-    state.user = null; state.profile = null;
-    show('screen-auth');
-  }
-});
+// Handle the redirect result once the user comes back from Google
+auth.getRedirectResult().catch(err=> setAuthError(err.message));
+
+// TEMP: set true to skip the login screen while testing. Set back to false before real use.
+const DEV_SKIP_LOGIN = true;
+
+if(DEV_SKIP_LOGIN){
+  state.user = { uid: 'dev-test-uid', displayName: 'Dev Tester', email: 'dev@test.local' };
+  state.profile = { name: 'Dev Tester', class: null, email: 'dev@test.local' };
+  document.getElementById('welcome-line').textContent = 'Signed in as Dev Tester (dev bypass)';
+  show('screen-home');
+  loadCategories();
+} else {
+  auth.onAuthStateChanged(user=>{
+    stopTimer();
+    if(user){
+      state.user = user;
+      db.collection('students').doc(user.uid).get().then(doc=>{
+        if(doc.exists){
+          state.profile = doc.data();
+          document.getElementById('welcome-line').textContent = 'Signed in as ' + (state.profile.name || user.email);
+          show('screen-home');
+          loadCategories();
+        } else {
+          // first-time sign-in: ask for optional class/grade, then create profile
+          show('screen-profile');
+        }
+      });
+    } else {
+      state.user = null; state.profile = null;
+      show('screen-auth');
+    }
+  });
+}
+
+function saveProfile(){
+  const cls = document.getElementById('profile-class').value.trim();
+  const err = document.getElementById('profile-error');
+  err.textContent = 'Saving…';
+  const user = state.user;
+  db.collection('students').doc(user.uid).set({
+    name: user.displayName || user.email,
+    class: cls || null,
+    email: user.email,
+    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+  }).then(()=>{
+    state.profile = {name: user.displayName || user.email, class: cls || null, email: user.email};
+    document.getElementById('welcome-line').textContent = 'Signed in as ' + state.profile.name;
+    show('screen-home');
+    loadCategories();
+  }).catch(e=> err.textContent = e.message);
+}
 
 /* ---------------- CATEGORIES / HOME ---------------- */
 function loadCategories(){
@@ -402,6 +417,9 @@ function updateTimerDisplay(){
 function renderQuestion(){
   const q = state.questions[state.current];
   document.getElementById('q-marks').textContent = state.marksPerQ[state.current] + ' marks';
+  const diffEl = document.getElementById('q-difficulty');
+  diffEl.textContent = q.difficulty || '';
+  diffEl.className = 'diff-tag' + (q.difficulty ? ' diff-' + q.difficulty.toLowerCase() : '');
   document.getElementById('q-text').textContent = q.q;
   document.getElementById('progress-label').textContent = `Question ${state.current+1} of ${state.questions.length}`;
 
@@ -415,7 +433,7 @@ function renderQuestion(){
 
   const optWrap = document.getElementById('options');
   optWrap.innerHTML = '';
-  const letters = ['A','B','C','D'];
+  const letters = ['A','B','C','D','E'];
   q.o.forEach((optText, idx)=>{
     const b = document.createElement('button');
     b.className = 'opt-btn' + (state.answers[state.current]===idx ? ' selected' : '');
@@ -490,7 +508,7 @@ function showReview(){
   show('screen-review');
   const list = document.getElementById('review-list');
   list.innerHTML = '';
-  const letters = ['A','B','C','D'];
+  const letters = ['A','B','C','D','E'];
   state.questions.forEach((q,i)=>{
     const userAns = state.answers[i];
     const div = document.createElement('div');
@@ -536,3 +554,4 @@ function showLeaderboard(){
 </script>
 </body>
 </html>
+
